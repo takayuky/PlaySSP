@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import play.api.Logger
 import play.api.libs.streams.ActorFlow
 import play.api.mvc._
+import play.api.libs.json._
 
 /**
   * This controller creates an `Action` to handle HTTP requests to the
@@ -32,8 +33,12 @@ class WebSocketController @Inject()(cc: ControllerComponents) (implicit system: 
 
     def receive: Receive = {
       case msg: String =>
-        Logger.debug(s"""message: $msg""")
-        out ! msg
+        val json = Json.parse(msg)
+        Logger.debug(s"""message: ${(json \ "app_id").get.asOpt[Int]}""")
+        if ((json \ "app_id").get.toString() == "123")
+          out ! s"""send dsp => $msg"""
+        else
+          out ! "return client"
     }
 
     override def postStop(): Unit = {
