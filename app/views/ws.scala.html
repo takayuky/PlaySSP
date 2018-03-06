@@ -1,24 +1,27 @@
 @main("echo") {
     <div>
         <script>
-                ws = new WebSocket('ws://localhost:9000/socket');
+            const requestData = { "app_id": 123 };
 
-                ws.onmessage = function (me) {
-                    var msg = "recievedData: " + me.data;
+            ws = new WebSocket('ws://localhost:9000/socket');
 
-                    console.log(msg);
-                    var view = document.getElementById("message");
-                    view.innerHTML += "<br />" + msg;
-                };
+            ws.onmessage = function (me) {
+                const msg = "recievedData: " + me.data;
 
-                function send(){
-                    console.log("send");
-                    ws.send(document.getElementById("input").value);
-                }
+                console.log(msg);
+                const view = document.getElementById("message");
+                view.innerHTML += "<br />" + msg;
+            };
+
+            function send(){
+                console.log(`send -> ${JSON.stringify(requestData)}`);
+                ws.send(JSON.stringify(requestData));
+            }
         </script>
-        <div id="cats">
-            <h2>WebSocket Test</h2>
-            <input id="input" type="text" value='hogehoge'/> <button onclick="send()">Send</button>
+        <div id="cats" style="margin: 16px">
+            <h2>SSP Test</h2>
+                @*<input id="input" type="text" value='hogehoge'/>*@
+            <button onclick="send()" style="height:200px;width:400px;font-size:30px">Send</button>
             <div id="message"></div>
         </div>
     </div>
