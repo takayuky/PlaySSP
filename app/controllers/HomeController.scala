@@ -2,6 +2,7 @@ package controllers
 
 import javax.inject._
 import play.api.mvc._
+import play.api.libs.json.Json
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -10,14 +11,18 @@ import play.api.mvc._
 @Singleton
 class HomeController @Inject()(cc: ControllerComponents) extends AbstractController(cc) {
 
-  /**
-   * Create an Action to render an HTML page with a welcome message.
-   * The configuration in the `routes` file means that this method
-   * will be called when the application receives a `GET` request with
-   * a path of `/`.
-   */
-  def index = Action {
-    Ok(views.html.index("Your new application is ready."))
+  def index = Action { request =>
+    request.body.asJson.map { json =>
+      (json \ "app_id").asOpt[Int].map {
+        case id@123 => Ok(Json.toJson(
+          Map("app_id" -> id)
+        ))
+        case _ => BadRequest("Miss")
+      }.getOrElse {
+        BadRequest("Miss")
+      }
+    }.getOrElse{
+      BadRequest("Miss")
+    }
   }
-
 }
