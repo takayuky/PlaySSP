@@ -1,0 +1,25 @@
+@main("echo") {
+    <div>
+        <script>
+                ws = new WebSocket('ws://localhost:9000/socket');
+
+                ws.onmessage = function (me) {
+                    var msg = "recievedData: " + me.data;
+
+                    console.log(msg);
+                    var view = document.getElementById("message");
+                    view.innerHTML += "<br />" + msg;
+                };
+
+                function send(){
+                    console.log("send");
+                    ws.send(document.getElementById("input").value);
+                }
+        </script>
+        <div id="cats">
+            <h2>WebSocket Test</h2>
+            <input id="input" type="text" value='hogehoge'/> <button onclick="send()">Send</button>
+            <div id="message"></div>
+        </div>
+    </div>
+}
