@@ -2,14 +2,12 @@ package controllers
 
 import javax.inject._
 
-import play.api.Logger
 import play.api.mvc._
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{Json}
 import play.api.libs.ws._
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
-import scala.util.{Success, Failure}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
@@ -21,29 +19,32 @@ case class BidResponse(url: String, price: Int)
 @Singleton
 class HomeController @Inject()(cc: ControllerComponents, ws: WSClient) extends AbstractController(cc) {
 
-  val request: WSRequest = ws.url("http://localhost:8080/main.php")
-  val dspRequest: (Int => Future[Option[Seq[JsValue]]]) =
-    (id: Int) => request.addHttpHeaders("Accept" -> "application/json")
-                        .withRequestTimeout(1 seconds)
-                        .post(Json.toJson(
-                          Map("app_id" -> id)
-                        ))
-                        .map {
-                          response => Some(Seq(
-                            (response.json \ "url").get,
-                            (response.json \ "price").get
-                          ))
-                        }
+  val requestUrl: WSRequest = ws.url("http://localhost:8080/main.php")
+  val requestUrl2: WSRequest = ws.url("http://localhost:8000/main.php")
+
+  def requestToDsp(id: Int, request: WSRequest): Future[BidResponse] =
+    request.addHttpHeaders("Accept" -> "application/json")
+      .withRequestTimeout(1 seconds)
+      .post(Json.toJson(
+        Map("app_id" -> id)
+      ))
+      .map {
+        response => BidResponse.apply(
+          (response.json \ "url").get.as[String],
+          (response.json \ "price").get.as[Int]
+        )
+      }
 
   def index = Action { request =>
+
     val response = for {
       json <- request.body.asJson
-      id <- (json \ "app_id").asOpt[Int] if id == 123 if Await.ready(dspRequest(id), Duration.Inf).isCompleted
-      result <- Await.result(dspRequest(id), Duration.Inf)
+      id <- (json \ "app_id").asOpt[Int] if id == 123
+      futureOfSequense <- Option(Future.sequence(List(requestToDsp(id, requestUrl), requestToDsp(id, requestUrl2))))
+      result <- Await.result(futureOfSequense, Duration.Inf)
     } yield {
       Ok(Json.toJson(Map(
-        "url" -> result.head,
-        "price" -> result(1)
+        "url" -> result.url
       )))
     }
     response.getOrElse(BadRequest("Miss"))
