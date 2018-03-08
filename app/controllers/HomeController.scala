@@ -3,12 +3,13 @@ package controllers
 import javax.inject._
 
 import play.api.mvc._
-import play.api.libs.json.{Json}
+import play.api.libs.json.Json
 import play.api.libs.ws._
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 /**
  * This controller creates an `Action` to handle HTTP requests to the
@@ -24,7 +25,7 @@ class HomeController @Inject()(cc: ControllerComponents, ws: WSClient) extends A
 
   def requestToDsp(id: Int, request: WSRequest): Future[BidResponse] =
     request.addHttpHeaders("Accept" -> "application/json")
-      .withRequestTimeout(1 seconds)
+      .withRequestTimeout(100 millisecond)
       .post(Json.toJson(
         Map("app_id" -> id)
       ))
@@ -36,17 +37,23 @@ class HomeController @Inject()(cc: ControllerComponents, ws: WSClient) extends A
       }
 
   def index = Action { request =>
-
     val response = for {
       json <- request.body.asJson
       id <- (json \ "app_id").asOpt[Int] if id == 123
-      futureOfSequense <- Option(Future.sequence(List(requestToDsp(id, requestUrl), requestToDsp(id, requestUrl2))))
-      result <- Await.result(futureOfSequense, Duration.Inf)
     } yield {
-      Ok(Json.toJson(Map(
-        "url" -> result.url
-      )))
+      val listOfFutures = List(requestToDsp(id, requestUrl), requestToDsp(id, requestUrl2))
+      val bidResponsesReceivedInTime = listOfFutures.par.flatMap(awaitEachFuture).toList
+      if (bidResponsesReceivedInTime.nonEmpty) {
+          Ok(Json.toJson(Map(
+          "url" ->  bidResponsesReceivedInTime.maxBy(bid => bid.price).url
+        )))
+      } else {
+        NoContent
+      }
     }
-    response.getOrElse(BadRequest("Miss"))
+    response.getOrElse(BadRequest)
   }
+
+  private def awaitEachFuture(f: Future[BidResponse]): Option[BidResponse] =
+    Try(Await.result(f, 100 millisecond)).toOption
 }
